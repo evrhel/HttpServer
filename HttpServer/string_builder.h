@@ -24,7 +24,14 @@ private:
 		if (cap > m_capacity)
 		{
 			m_capacity = cap;
-			m_buf = (_CharT *)realloc(m_buf, cap * sizeof(_CharT));
+			_CharT *nbuf = (_CharT *)realloc(m_buf, cap * sizeof(_CharT));
+			if (!nbuf)
+			{
+				free(m_buf);
+				m_capacity = 0;
+				m_length = 0;
+			}
+			m_buf = nbuf;
 		}
 	}
 public:
@@ -88,11 +95,15 @@ public:
 	// append a string
 	inline BasicStringBuilder<_CharT> &Append(const _CharT *chars)
 	{
-		while (*chars)
+		size_t len = 0;
+		const _CharT *temp = chars;
+		while (*temp)
 		{
-			Append(*chars);
-			chars++;
+			temp++;
+			len++;
 		}
+
+		Append(chars, len);
 		return *this;
 	}
 
@@ -141,7 +152,7 @@ public:
 	}
 
 	// returns raw elements
-	inline const _CharT *GetElements() const
+	constexpr const _CharT *GetElements() const
 	{
 		return m_length == 0 ? nullptr : m_buf;
 	}
@@ -165,7 +176,7 @@ public:
 	}
 
 	// move operator
-	inline StringBuilder &operator=(StringBuilder &&other) noexcept
+	constexpr StringBuilder &operator=(StringBuilder &&other) noexcept
 	{
 		if (this != &other)
 		{
@@ -182,11 +193,12 @@ public:
 	{
 		if (this != &other)
 		{
-			free(m_buf);
+			if (m_buf)
+				free(m_buf);
 			m_capacity = 0;
 			m_length = 0;
 			
-			m_buf = malloc(other.m_capacity);
+			m_buf = (_CharT *)malloc(other.m_capacity);
 			if (m_buf)
 			{
 				memcpy(m_buf, other.m_buf, other.m_length * sizeof(_CharT));

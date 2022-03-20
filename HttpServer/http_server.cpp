@@ -168,8 +168,6 @@ DWORD HTTPConnectionWorker(__in HTTPConnectionWorkerInfo *info)
 
 	delete info;
 
-	printf("Started client worker\n");
-
 	do
 	{
 		HTTPRequest *req = connection->GetNextRequest();
@@ -200,10 +198,13 @@ DWORD HTTPConnectionWorker(__in HTTPConnectionWorkerInfo *info)
 		delete req;
 
 		if (connection->SendResponse(response->Finalize()) <= 0)
+		{
+			delete response;
 			break;
-	} while (true);
+		}
 
-	printf("Ended client worker\n");
+		delete response;
+	} while (true);
 
 	delete connection;
 	return 0;

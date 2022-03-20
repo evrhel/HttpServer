@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <set>
 
 #include "http_server.h"
 #include "settings.h"
@@ -130,10 +131,16 @@ int main(int argc, char *argv[])
 			}
 			else if (equalsIgnoreCase(buf, "rstat"))
 			{
-				printf("%-32s %-14s %-15s\n", "[Path]", "[DRAM Usage]", "[Mapped Size]");
+				std::set<CaseInsensitiveString> orderednames;
 				for (auto it : httpServer.GetResources())
+					orderednames.insert(it.first);
+
+
+				printf("%-32s %-14s %-15s\n", "[Path]", "[DRAM Usage]", "[Mapped Size]");
+				for (auto &key : orderednames)
 				{
-					printf("%-32s %-14zu %-15zu\n", it.first.cstr(), it.second->GetDRAMUsage(), it.second->GetMemoryMappedSize());
+					HTTPResource *rsrc = httpServer.FindHTTPResource(key);
+					printf("%-32s %-14zu %-15zu\n", key.cstr(), rsrc->GetDRAMUsage(), rsrc->GetMemoryMappedSize());
 				}
 			}
 			else if (equalsIgnoreCase(buf, "help"))
