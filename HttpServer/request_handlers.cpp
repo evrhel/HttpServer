@@ -53,3 +53,45 @@ HTTPResponse *HandleGETRequest(const HTTPRequest *request)
 
 	return res;
 }
+
+HTTPResponse *HandleOPTIONSRequest(const HTTPRequest *request)
+{
+	HTTPServer *server = (HTTPServer *)request->GetSource()->GetHTTPServer();
+
+	HTTPResponse *response = new HTTPResponse();
+
+	const std::string *origin = request->GetHeader("Origin");
+	if (origin)
+	{
+		response->AddHeader("Access-Control-Allow-Origin", *origin);
+		response->AddHeader("Vary", "Origin");
+	}
+	else
+		response->AddHeader("Access-Control-Allow-Origin", "*");
+
+	server->GenerateAllowHeader(response);
+
+	//response->AddHeader("Access-Control-Allow-Origin", "*");
+
+	response->SetCode(RESP_NO_CONTENT);
+	response->SetReason("No Content");
+
+	return response;
+}
+
+HTTPResponse *HandlePOSTRequest(const HTTPRequest *request)
+{
+	HTTPServer *server = (HTTPServer *)request->GetSource()->GetHTTPServer();
+
+	HTTPResponse *response = new HTTPResponse();
+
+	response->SetCode(RESP_CREATED);
+	response->SetReason("Created");
+
+	constexpr const char ResponseContent[] = "{\"success\":\"true\"}";
+	response->AppendContent(ResponseContent, sizeof(ResponseContent) - 1);
+
+	response->SetContentType("application/json");
+
+	return response;
+}

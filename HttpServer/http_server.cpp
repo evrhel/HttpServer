@@ -75,15 +75,24 @@ void HTTPServer::LoadResources(const std::string &resourcedir)
 }
 
 HTTPServer::HTTPServer(const std::string &resourcedir) :
-	m_server(nullptr), m_handle(NULL), m_resources()
+	m_server(nullptr), m_handle(NULL), m_rsrcMutex(NULL), m_resources(),
+	m_resourcedir(resourcedir)
 {
 	memset(m_handleFuncs, 0, sizeof(m_handleFuncs));
 	LoadResources(resourcedir);
+
+	m_rsrcMutex = CreateMutexA(NULL, FALSE, NULL);
 }
 
 HTTPServer::~HTTPServer()
 {
 	Close();
+
+	if (m_rsrcMutex)
+	{
+		CloseHandle(m_rsrcMutex);
+		m_rsrcMutex = NULL;
+	}
 }
 
 void HTTPServer::CreateResourceProxy(const CaseInsensitiveString &from, const CaseInsensitiveString &to)
@@ -146,17 +155,92 @@ bool HTTPServer::WaitUntilFinish()
 	return false;
 }
 
+bool HTTPServer::ReloadResources()
+{
+	DWORD dwWaitResult = WaitForSingleObject(m_rsrcMutex, INFINITE);
+	switch (dwWaitResult)
+	{
+	case WAIT_OBJECT_0:
+		for (auto &p : m_resources)
+			delete p.second;
+		m_resources.clear();
+
+		LoadResources(m_resourcedir);
+		return true;
+	case WAIT_ABANDONED:
+		return false;
+		break;
+	}
+}
+
 HTTPResource *HTTPServer::FindHTTPResource(const CaseInsensitiveString &location) const
 {
 	const CaseInsensitiveString *actual;
-	auto proxit = m_resourceProxies.find(location);
-	if (proxit != m_resourceProxies.end())
-		actual = &proxit->second;
-	else
-		actual = &location;
+	std::unordered_map<CaseInsensitiveString, CaseInsensitiveString>::const_iterator proxit;
+	std::unordered_map<CaseInsensitiveString, HTTPResource *>::const_iterator it;
+	HTTPResource *result = nullptr;
 
-	auto it = m_resources.find(*actual);
-	return it == m_resources.end() ? nullptr : it->second;
+	DWORD dwWaitResult = WaitForSingleObject(m_rsrcMutex, INFINITE);
+	switch (dwWaitResult)
+	{
+	case WAIT_OBJECT_0:
+		proxit = m_resourceProxies.find(location);
+		if (proxit != m_resourceProxies.end())
+			actual = &proxit->second;
+		else
+			actual = &location;
+
+		it = m_resources.find(*actual);
+		if (it != m_resources.end())
+			result = it->second;
+
+		ReleaseMutex(m_rsrcMutex);
+		break;
+	case WAIT_ABANDONED:
+		break;
+	}
+	
+	return result;
+}
+
+const std::unordered_map<CaseInsensitiveString, HTTPResource *> &HTTPServer::GetResources() const
+{
+	DWORD dwWaitResult = WaitForSingleObject(m_rsrcMutex, INFINITE);
+	switch (dwWaitResult)
+	{
+	case WAIT_OBJECT_0:
+		ReleaseMutex(m_rsrcMutex);
+	case WAIT_ABANDONED:
+		return m_resources;
+	}
+}
+
+const std::unordered_map<CaseInsensitiveString, CaseInsensitiveString> &HTTPServer::GetResourceProxies() const
+{
+	DWORD dwWaitResult = WaitForSingleObject(m_rsrcMutex, INFINITE);
+	switch (dwWaitResult)
+	{
+	case WAIT_OBJECT_0:
+		ReleaseMutex(m_rsrcMutex);
+	case WAIT_ABANDONED:
+		return m_resourceProxies;
+	}
+}
+
+void HTTPServer::GenerateAllowHeader(HTTPResponse *dest) const
+{
+	StringBuilder allowed;
+	for (int method = 0; method < METHOD_COUNT; method++)
+	{
+		if (GetRequestHandlerFunc(method))
+		{
+			if (allowed.Size() > 0)
+				allowed.Append(", ");
+			allowed.Append(GetMethodString(method));
+		}
+	}
+
+	dest->AddHeader("Allow", allowed.ToInPlaceString());
 }
 
 DWORD HTTPConnectionWorker(__in HTTPConnectionWorkerInfo *info)
@@ -217,20 +301,12 @@ HTTPResponse *HandleUnsupportedRequest(const HTTPRequest *request)
 	response->SetCode(RESP_METHOD_NOT_ALLOWED);
 	response->SetReason(GetMethodString(request->GetMethod()));
 
-	StringBuilder allowed;
+	//StringBuilder allowed;
 
 	HTTPServer *server = (HTTPServer *)request->GetSource()->GetHTTPServer();
-	for (int method = 0; method < METHOD_COUNT; method++)
-	{
-		if (server->GetRequestHandlerFunc(method))
-		{
-			if (allowed.Size() > 0)
-				allowed.Append(", ");
-			allowed.Append(GetMethodString(method));
-		}
-	}
+	server->GenerateAllowHeader(response);
 
-	response->AddHeader("Allow", allowed.ToInPlaceString());
+	//response->AddHeader("Allow", allowed.ToInPlaceString());
 
 	static constexpr char Message[] = "405 Method Not Allowed";
 

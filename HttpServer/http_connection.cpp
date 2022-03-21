@@ -39,19 +39,10 @@ HTTPRequest *HTTPConnection::GetNextRequest()
 
 	do
 	{
-		int len = m_connection->ReadBytes(buffer, BufferSize);
-		if (len <= 0)
-		{
-			// connection closed/error
-			return nullptr;
-		}
-
-		m_buffer.Append(buffer, len);
-
+		// first read any data remaining in the buffer
 		char *buf = m_buffer.GetElements();
 		int bufsize = m_buffer.Size();
 
-		
 		int lastind, currind = 0;
 		do
 		{
@@ -74,6 +65,16 @@ HTTPRequest *HTTPConnection::GetNextRequest()
 				goto exit_main;
 			}
 		} while (true);
+
+		// we need to read more data from the stream
+		int len = m_connection->ReadBytes(buffer, BufferSize);
+		if (len <= 0)
+		{
+			// connection closed/error
+			return nullptr;
+		}
+
+		m_buffer.Append(buffer, len);
 	} while (true);
 
 exit_main:
@@ -146,13 +147,14 @@ exit_main:
 		if (request->m_contentlen > 0)
 		{
 			request->m_content = new char[request->m_contentlen];
-			int len = m_connection->ReadBytes(request->m_content, request->m_contentlen);
+			memcpy(request->m_content, m_buffer.GetElements() + headerlen, request->m_contentlen);
+			//int len = m_connection->ReadBytes(request->m_content, request->m_contentlen);
 
-			if (len < request->m_contentlen)
+			/*if (len < request->m_contentlen)
 			{
 				delete request;
 				return nullptr;
-			}
+			}*/
 		}
 	}
 

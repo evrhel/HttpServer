@@ -33,12 +33,23 @@ enum
 enum
 {
 	RESP_OK = 200,
+	RESP_CREATED = 201,
+	RESP_ACCEPTED = 202,
+	RESP_NON_AUTHORITATIVE_INFORMATION = 203,
+	RESP_NO_CONTENT = 204,
+	RESP_RESET_CONTENT = 205,
+	RESP_PARTIAL_CONTENT = 206,
+	RESP_MULTI_STATUS = 207,
+	RESP_ALREADY_REPORTED = 208,
+	RESP_IM_USED = 209,
 
 	RESP_BAD_REQUEST = 400,
 	RESP_UNAUTHORIZED = 401,
 	RESP_FORBIDDEN = 403,
 	RESP_NOT_FOUND = 404,
-	RESP_METHOD_NOT_ALLOWED = 405
+	RESP_METHOD_NOT_ALLOWED = 405,
+
+	RESP_INTERNAL_SERVER_ERROR = 500
 };
 
 const char *GetMethodString(int method);
@@ -154,7 +165,8 @@ public:
 		static CaseInsensitiveString CONTENT_LENGTH_KEY("Content-Length");
 		static CaseInsensitiveString SERVER_KEY("Server");
 		
-		AddHeader(CONTENT_LENGTH_KEY, std::to_string(m_content.Size()));
+		if (m_content.Size() > 0)
+			AddHeader(CONTENT_LENGTH_KEY, std::to_string(m_content.Size()));
 		AddHeader(SERVER_KEY, "HttpServer/1.0");
 		return this;
 	}

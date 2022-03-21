@@ -75,6 +75,9 @@ int main(int argc, char *argv[])
 	}
 
 	httpServer.SetRequestHandler(METHOD_GET, &HandleGETRequest);
+	httpServer.SetRequestHandler(METHOD_OPTIONS, &HandleOPTIONSRequest);
+	httpServer.SetRequestHandler(METHOD_POST, &HandlePOSTRequest);
+	httpServer.SetRequestHandler(METHOD_PUT, &HandlePOSTRequest);
 
 	printf("Dispatch server...\n");
 	if (!httpServer.DispatchServer())
@@ -143,12 +146,21 @@ int main(int argc, char *argv[])
 					printf("%-32s %-14zu %-15zu\n", key.cstr(), rsrc->GetDRAMUsage(), rsrc->GetMemoryMappedSize());
 				}
 			}
+			else if (equalsIgnoreCase(buf, "reload"))
+			{
+				printf("Reloading...\n");
+				if (!httpServer.ReloadResources())
+					printf("Failure.\n");
+				else
+					printf("Success!\n");
+			}
 			else if (equalsIgnoreCase(buf, "help"))
 			{
 				printf("Commands:\n");
 				printf("  shutdown | exit     Shuts down the server\n");
 				printf("  quit                Forcefully exits the application\n");
 				printf("  rstat               Prints resource statistics\n");
+				printf("  reload              Reload server resources\n");
 			}
 			else
 			{

@@ -17,7 +17,9 @@ private:
 private:
 	Server *m_server;
 	HANDLE m_handle;
+	HANDLE m_rsrcMutex;
 
+	std::string m_resourcedir;
 	std::unordered_map<CaseInsensitiveString, HTTPResource *> m_resources;
 	std::unordered_map<CaseInsensitiveString, CaseInsensitiveString> m_resourceProxies;
 
@@ -34,7 +36,7 @@ public:
 			m_handleFuncs[request] = func;
 	}
 
-	constexpr HTTPRequestHandlerFunc GetRequestHandlerFunc(int method)
+	constexpr HTTPRequestHandlerFunc GetRequestHandlerFunc(int method) const
 	{
 		if (method < 0 || method >= METHOD_COUNT)
 			return nullptr;
@@ -50,15 +52,18 @@ public:
 	bool DispatchServer();
 	bool WaitUntilFinish();
 
+	constexpr const std::string &GetResourceDirectory() const
+	{
+		return m_resourcedir;
+	}
+
+	bool ReloadResources();
+
 	HTTPResource *FindHTTPResource(const CaseInsensitiveString &location) const;
 
-	constexpr const std::unordered_map<CaseInsensitiveString, HTTPResource *> &GetResources() const
-	{
-		return m_resources;
-	}
+	const std::unordered_map<CaseInsensitiveString, HTTPResource *> &GetResources() const;
 
-	constexpr const std::unordered_map<CaseInsensitiveString, CaseInsensitiveString> &GetResourceProxies() const
-	{
-		return m_resourceProxies;
-	}
+	const std::unordered_map<CaseInsensitiveString, CaseInsensitiveString> &GetResourceProxies() const;
+
+	void GenerateAllowHeader(HTTPResponse *dest) const;
 };
