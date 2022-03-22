@@ -117,7 +117,7 @@ static constexpr const char *ToASCIIEscapeString(char c)
 	switch (c)
 	{
 	case '\0':
-		return "\\00";
+		return "\\0";
 	case '\x01':
 		return "\\x01";
 	case '\x02':

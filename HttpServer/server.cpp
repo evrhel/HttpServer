@@ -37,6 +37,18 @@ bool Server::Open(USHORT port, int family)
 		return false;
 	}
 
+	/*SOCKET_SECURITY_SETTINGS sssSetings = {
+		SOCKET_SECURITY_PROTOCOL_DEFAULT,
+		SOCKET_SETTINGS_GUARANTEE_ENCRYPTION
+	};
+
+	int res = WSASetSocketSecurity(server, &sssSetings, sizeof(sssSetings), NULL, NULL);
+	if (res == SOCKET_ERROR)
+	{
+		ReleaseMutex(m_mutex);
+		return false;
+	}*/
+
 	struct sockaddr_storage storage;
 	int addrlen;
 
