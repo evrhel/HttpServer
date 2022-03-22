@@ -127,6 +127,11 @@ public:
 		return Append(chars, _Count);
 	}
 
+	inline BasicStringBuilder<_CharT> &Append(const std::basic_string<_CharT> &string)
+	{
+		return Append(string.c_str(), string.length());
+	}
+
 	inline void ShiftBack(size_t count)
 	{
 		memcpy(m_buf, m_buf + count, m_length - count);

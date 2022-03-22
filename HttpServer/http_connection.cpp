@@ -7,6 +7,12 @@ static constexpr int NewLineLength = sizeof(NewLine) - 1;
 static constexpr char HeaderSeparator[] = ":";
 static constexpr int HeaderSeparatorLength = sizeof(HeaderSeparator) - 1;
 
+constexpr const char CookieSetSeparator[] = "=";
+constexpr const int CookieSetSeparatorLength = sizeof CookieSetSeparator - 1;
+
+constexpr const char SetCookieKey[] = "Set-Cookie: ";
+constexpr int SetCookieKeyLength = sizeof SetCookieKey - 1;
+
 static constexpr int BufferSize = 8192;
 
 HTTPConnection::~HTTPConnection()
@@ -80,6 +86,7 @@ HTTPRequest *HTTPConnection::GetNextRequest()
 exit_main:
 	HTTPRequest *request = new HTTPRequest();
 	std::unordered_map<CaseInsensitiveString, std::string> &headers = request->m_headers;
+	std::unordered_map<std::string, HTTPCookie *> &cookies = request->m_cookies;
 
 	// parse the header
 	char *headerdata = new char[headerlen + 1];
@@ -133,8 +140,26 @@ exit_main:
 
 		CaseInsensitiveString key(line.substr(0, ind));
 		std::string value(line.c_str() + ind + 1);
+		std::string trimmed = Trim(value);
 
-		headers[key] = Trim(value);
+		if (key != "Cookie")
+			headers[key] = trimmed;
+		else
+		{
+			std::vector<std::string> cookiestrs;
+			Tokenize((char *)trimmed.c_str(), ";", &cookiestrs);
+			for (size_t cookidx = 0; cookidx < cookiestrs.size(); cookidx++)
+			{
+				int ind = FindFirstOf(trimmed.c_str(), trimmed.length(), CookieSetSeparator, CookieSetSeparatorLength);
+				if (ind > 0 && ind < trimmed.size() - 1)
+				{
+					std::string name = Trim(trimmed.substr(0, ind));
+					std::string value = Trim(trimmed.substr(ind + 1));
+					if (name.length() == 0 || value.length() == 0) continue; // ignore the cookie
+					cookies[name] = new HTTPCookie(name, value);
+				}
+			}
+		}
 	}
 
 
@@ -180,14 +205,22 @@ int HTTPConnection::SendResponse(const HTTPResponse *response)
 
 	for (auto p : response->GetHeaders())
 	{
-		data.Append(p.first.cstr());
+		data.Append(p.first.cstr(), p.first.length());
 		data.Append(':').Append(' ');
-		data.Append(p.second.c_str());
+		data.Append(p.second);
 
-		data.Append(NewLine);
+		data.Append(NewLine, NewLineLength);
 	}
 
-	data.Append(NewLine);
+	size_t cookienum = 1;
+	for (auto p : response->GetCookies())
+	{
+		data.Append(SetCookieKey, SetCookieKeyLength);
+		p.second->AppendToBuilder(data);
+		data.Append(NewLine, NewLineLength);
+	}
+
+	data.Append(NewLine, NewLineLength);
 	if (contentLength > 0)
 		data.Append(response->GetContent(), contentLength);
 

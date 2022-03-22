@@ -6,6 +6,7 @@
 #include "string_builder.h"
 #include "client_connection.h"
 #include "uri.h"
+#include "http_cookie.h"
 
 using namespace strutil;
 
@@ -64,6 +65,7 @@ private:
 	URI m_uri;
 	std::unordered_map<CaseInsensitiveString, CaseInsensitiveString> m_queries;
 	std::unordered_map<CaseInsensitiveString, std::string> m_headers;
+	std::unordered_map<std::string, HTTPCookie *> m_cookies;
 	char *m_content;
 	int m_contentlen;
 	HTTPConnection *m_source;
@@ -74,6 +76,9 @@ public:
 	{
 		if (m_content)
 			delete[] m_content;
+
+		for (auto p : m_cookies)
+			delete p.second;
 	}
 
 	HTTPRequest(const HTTPRequest &) = delete;
@@ -100,6 +105,12 @@ public:
 		return it == m_headers.end() ? nullptr : &it->second;
 	}
 
+	inline const HTTPCookie *GetCookie(const std::string &name) const
+	{
+		auto it = m_cookies.find(name);
+		return it == m_cookies.end() ? nullptr : it->second;
+	}
+
 	constexpr const char *GetContent() const
 	{
 		return m_content;
@@ -122,6 +133,7 @@ private:
 	int m_code;
 	std::string m_reason;
 	std::unordered_map<CaseInsensitiveString, std::string> m_headers;
+	std::unordered_map<std::string, HTTPCookie *> m_cookies;
 	StringBuilder m_content;
 public:
 	inline HTTPResponse() :
@@ -129,7 +141,11 @@ public:
 	inline HTTPResponse(size_t expectedcontentlen) :
 		m_code(0), m_reason(), m_headers(), m_content(expectedcontentlen) { }
 
-	inline ~HTTPResponse() { }
+	inline ~HTTPResponse()
+	{
+		for (auto p : m_cookies)
+			delete p.second;
+	}
 	
 	HTTPResponse(const HTTPResponse &) = delete;
 
@@ -147,6 +163,19 @@ public:
 	{
 		if (name.length() > 0 && value.length() > 0)
 			m_headers[name] = value;
+	}
+
+	inline void AddCookie(const HTTPCookie &cookie)
+	{
+		const std::string &name = cookie.GetName();
+		auto p = m_cookies.find(name);
+		if (p == m_cookies.end())
+			m_cookies[cookie.GetName()] = new HTTPCookie(cookie);
+		else if (&cookie != p->second)
+		{
+			delete p->second;
+			p->second = new HTTPCookie(cookie);
+		}
 	}
 
 	inline void SetContentType(const std::string &type)
@@ -184,6 +213,11 @@ public:
 	constexpr const std::unordered_map<CaseInsensitiveString, std::string> &GetHeaders() const
 	{
 		return m_headers;
+	}
+
+	constexpr const std::unordered_map<std::string, const HTTPCookie *> &GetCookies() const
+	{
+		return (const std::unordered_map<std::string, const HTTPCookie *> &)m_cookies;
 	}
 
 	inline const char *GetContent() const

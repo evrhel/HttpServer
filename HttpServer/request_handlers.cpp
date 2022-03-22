@@ -49,6 +49,19 @@ HTTPResponse *HandleGETRequest(const HTTPRequest *request)
 	res->AppendContent(data, len);
 	res->SetContentType(contentType);
 
+	Date exp = {
+		DOW_TUE,
+		22,
+		MON_MAR,
+		2022,
+		12,
+		0,
+		0
+	};
+
+	HTTPCookie cookie("MyCookie", "CookieValue");
+	res->AddCookie(cookie.SetExpiration(exp));
+
 	rsrc->Done();
 
 	return res;
